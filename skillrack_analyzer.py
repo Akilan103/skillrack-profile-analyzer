@@ -66,7 +66,7 @@ if response.status_code == 200:
     if filtered_scores:
         plt.pie(filtered_scores.values(), labels=filtered_scores.keys(),
                 autopct='%1.1f%%', startangle=90)
-        plt.title("Contribution to Total Score (5000)")
+        plt.title("Contribution (5000)")
         plt.show()
     else:
         print("No contributions to display in chart.")
