@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Skillrack Profile Analyzer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; font-family: "Segoe UI", sans-serif; }
+    body {
+      margin: 0;
+      padding: 30px;
+      background: linear-gradient(135deg,#667eea,#764ba2);
+      color: #222;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1000px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.18);
+    }
+
+    header { text-align: center; color: #fff; margin-bottom: 12px; }
+    h1 { margin: 0; font-size: 1.6rem; color: #fff; }
+    p.lead { margin: 4px 0 18px; color: #eef; }
+
+    .top {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .top input[type="text"] {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      font-size: 15px;
+    }
+    .top button {
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg,#667eea,#764ba2);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+
+    .card {
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+    }
+
+    .card h3 { margin: 0 0 8px; font-size: 14px; color: #444; }
+    .card p { margin: 0; font-size: 18px; font-weight: 700; color: #0b5cff; }
+
+    #chart img { display:block; margin: 18px auto 0; max-width:420px; width:100%; border-radius:12px; box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
+
+    .footer { text-align:center; margin-top: 18px; color: #666; font-size: 13px; }
+    .processing { text-align:center; color:#374151; padding:12px; }
+  </style>
+</head>
+<body>
+  <div style="position:fixed;left:20px;top:14px;color:#fff">
+    <strong>FS'tival 2025 • TCE</strong>
+  </div>
+
+  <div class="container">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h2 style="margin:0">📊 Skillrack Profile Analyzer</h2>
+      <div style="font-size:13px;color:#555">Thiagarajar College of Engineering</div>
+    </div>
+
+    <div class="top">
+      <input id="profileUrl" type="text" placeholder="Enter Skillrack Profile URL (e.g., https://www.skillrack.com/profile/512913/...)" />
+      <button id="goBtn">Analyze</button>
+    </div>
+
+    <div id="status" class="processing" style="display:none">Processing... please wait</div>
+
+    <div id="cards" class="grid" style="margin-top:10px"></div>
+
+    <div id="chart" style="text-align:center"></div>
+
+    <div class="footer">Made for FS'tival 2025 • Thiagarajar College of Engineering</div>
+  </div>
+
+  <script>
+    const goBtn = document.getElementById("goBtn");
+    const urlInput = document.getElementById("profileUrl");
+    const status = document.getElementById("status");
+    const cards = document.getElementById("cards");
+    const chartDiv = document.getElementById("chart");
+
+    // order of labels to display as cards
+    const order = [
+      "Name", "RANK", "LEVEL", "GOLD", "SILVER", "BRONZE",
+      "PROGRAMS SOLVED", "CODE TEST", "CODE TRACK", "DC", "DT",
+      "CODE TUTOR", "Python3", "C","Java","C++","SQL", "Total Score", "Percentage"
+    ];
+
+    goBtn.addEventListener("click", async () => {
+      const url = urlInput.value.trim();
+      if (!url) {
+        alert("Paste a Skillrack profile URL first.");
+        return;
+      }
+
+      status.style.display = "block";
+      status.innerText = "Processing...";
+
+      cards.innerHTML = "";
+      chartDiv.innerHTML = "";
+
+      const form = new FormData();
+      form.append("url", url);
+
+      try {
+        const res = await fetch("http://127.0.0.1:8000/process", {
+          method: "POST",
+          body: form
+        });
+
+        const data = await res.json();
+        if (data.error) {
+          status.innerText = "Error: " + data.error;
+          return;
+        }
+
+        status.style.display = "none";
+
+        // build a details object that includes Total Score & Percentage
+        const details = Object.assign({}, data.details || {});
+        details["Total Score"] = data.total_score || "";
+        details["Percentage"] = data.percentage || "";
+
+        // render cards in specified order
+        for (let key of order) {
+          const value = details[key] !== undefined ? details[key] : (data.numeric && data.numeric[key] !== undefined ? String(data.numeric[key]) : "0");
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `<h3>${key}</h3><p>${value}</p>`;
+          cards.appendChild(card);
+        }
+
+        // also show chart (base64)
+        if (data.chart) {
+          chartDiv.innerHTML = `<img src="data:image/png;base64,${data.chart}" alt="Contribution chart" />`;
+        } else {
+          chartDiv.innerHTML = `<div style="color:#666;margin-top:18px">No contribution chart (no scoring components found)</div>`;
+        }
+
+      } catch (err) {
+        status.innerText = "Error: " + err;
+      }
+    });
+
+    // allow Enter in input to trigger
+    urlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        goBtn.click();
+      }
+    });
+  </script>
+</body>
+</html>
